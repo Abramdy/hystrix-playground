@@ -11,8 +11,11 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-public class AgoObservableCommandTest {
-    private static final Logger LOG = LoggerFactory.getLogger(AgoObservableCommandTest.class);
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SuppressWarnings("Duplicates")
+public class ExecuteCommandsInParallelTest {
+    private static final Logger LOG = LoggerFactory.getLogger(ExecuteCommandsInParallelTest.class);
     public static final Action1<Optional<String>> ACTION = s -> LOG.debug(">>> " + s);
 
     @Test
@@ -21,18 +24,22 @@ public class AgoObservableCommandTest {
         int count = 3;
         final CountDownLatch latch = new CountDownLatch(count);
         int workingTimeInMs = 200;
+        int workingTimeSummarized = count * workingTimeInMs;
 
         for (int i = 0; i < count; i++) {
-            Observable<Optional<String>> single1 = new AgoObservableCommand(latch, workingTimeInMs).toObservable().subscribeOn(Schedulers.computation());
+            Observable<Optional<String>> single1 = new AgoObservableCommand(latch, workingTimeInMs, 500).toObservable().subscribeOn(Schedulers.computation());
             single1.single().subscribe(ACTION);
         }
-
-        System.out.println("\n\n");
         LOG.debug("observables initialized");
-        latch.await(count * workingTimeInMs + 500, TimeUnit.MILLISECONDS);
-        LOG.debug("work took " + (System.currentTimeMillis() - start) + "ms, all task summarized took " + (count * workingTimeInMs) + "ms");
+
+        latch.await(workingTimeSummarized + 500, TimeUnit.MILLISECONDS);
+        long executionTime = System.currentTimeMillis() - start;
+
+        assertThat(executionTime).isLessThanOrEqualTo(workingTimeSummarized);
+        LOG.debug("work took " + executionTime + "ms, all task summarized took " + workingTimeSummarized + "ms");
 
         // wait for log4j messages to come on the console before program finishes
         Thread.sleep(50);
     }
+
 }
